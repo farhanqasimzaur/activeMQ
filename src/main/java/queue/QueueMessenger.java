@@ -1,5 +1,8 @@
 package queue;
 
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import properties.PropertiesLoader;
@@ -14,12 +17,25 @@ import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Session;
 import javax.jms.TextMessage;
+import javax.json.JsonObject;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.Serializable;
 
 public class QueueMessenger {
 
     private static QueueMessenger queueMessenger;
     private static String BROKER_URL = PropertiesLoader.getBrokerURL();
+    private static Gson gson = new GsonBuilder()
+            .disableHtmlEscaping()
+            .setFieldNamingPolicy(FieldNamingPolicy.UPPER_CAMEL_CASE)
+            .setPrettyPrinting()
+            .serializeNulls()
+            .create();
 
     private QueueMessenger(){}
 
@@ -55,5 +71,27 @@ public class QueueMessenger {
             return textMessage.getText();
         }
         return "";
+    }
+
+    /**
+     * @param object The object to be sent.
+     * @param queue The name of the queue to send the object to.
+     * @throws JMSException If any error occurs
+     */
+    public static void sendObject(Object object, String queue)throws JMSException{
+        String toJson = gson.toJson(object);
+        sendMessage(toJson, queue);
+    }
+
+    /**
+     * @param typeOf This is the class of the object which you want to receive. Example User.class
+     * @param queue This is the name of the queue from which you would receive the object.
+     * @param <T> Generic type object. If User.class object is received, User.class object is returned
+     * @return Returning the object specified.
+     * @throws JMSException If any error occurs
+     */
+    public static <T> T receiveObject(Class<T> typeOf, String queue)throws JMSException{
+        String jsonReceived = receiveMessageString(queue);
+        return gson.fromJson(jsonReceived, typeOf);
     }
 }
